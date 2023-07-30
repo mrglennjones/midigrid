@@ -304,13 +304,6 @@ function ModMenu:doDeinit()
 
   _menu.timer:stop()
   _menu.timer.event = old_timer_handler
-    for k, v in pairs(m.triggered) do
-      if v > 0 then
-        m.triggered[k] = v - 1
-      end
-    end
-    mod.menu.redraw()
-  end
 
   page = nil
 
