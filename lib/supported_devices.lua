@@ -39,6 +39,9 @@ local supported_devices = {
     -- Linnstrument
     { midi_base_name= 'linnstrument midi',          device_type='linnstrument'   },
 
+    -- Synthstrom Deluge
+    { midi_base_name = 'deluge 1', device_type='deluge' },
+
   }
 }
 
