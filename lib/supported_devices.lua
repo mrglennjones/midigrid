@@ -3,6 +3,7 @@ local supported_devices = {
     
     -- Basic midi grid devices
     { midi_base_name= 'apc mini',         device_type='apc_mini'      },
+    { midi_base_name= 'apc mini mk2 1',   device_type='apc_mini_mk2'  },
     { midi_base_name= 'block 1',          device_type='livid_block'   },
 
     -- Novation Launchpads Gen.1
