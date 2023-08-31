@@ -10,6 +10,25 @@ local apcmini = include('midigrid/lib/devices/generic_device')
  -- 4           94          0     On 75% brightness 
  -- 5           95          0     On 90% brightness 
  -- 6           96          0     On 100% brightness 
+-- the brightness map colour scheme is as sames as for launcpad RGB , you can tweak them for your preferences
+ apcmini.brightness_map = {
+  0,
+  11,
+  100,
+  125,
+  83,
+  117,
+  14,
+  62,
+  99,
+  118,
+  126,
+  97,
+  109,
+  13,
+  12,
+  119
+}
 
  --these are the keys in the apc to the sides of our apc, not necessary for strict grid emulation but handy!
  --they are up to down, so 112 is the auxkey to row 1
