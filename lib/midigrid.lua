@@ -18,7 +18,15 @@ local midigrid = {
   is_midigrid = true,
   vgrid = vgrid,
   device = nil,
-  core_grid = grid,
+
+  -- If the global 'grid' object contains a 'real_grid' element, then it must
+  -- have already been replaced by the midigrid mod.  Use the mod's 'real_grid'
+  -- if it exists, and the global 'grid' otherwise.
+  --
+  -- This ensures that 'core_grid' actually points to the underlying grid
+  -- subsystem.
+
+  core_grid = grid.real_grid or grid,
   core_midi_add = nil,
   core_midi_remove = nil,
   cols = 8,
