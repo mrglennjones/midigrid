@@ -118,15 +118,22 @@ end
 
 function midigrid._load_midi_devices(midi_devs)
   local connected_devices = {}
-  for midi_id,midi_device_type in pairs(midi_devs) do
+  local device_positions = { "top-left", "top-right", "bottom-left", "bottom-right" }
+  
+  for i, midi_id in ipairs(midi_devs) do
+    local midi_device_type = midi_devs[midi_id]
     print("Loading midi device type:" .. midi_device_type .. " on midi port " .. midi_id)
     local device = include('midigrid/lib/devices/'..midi_device_type)
     device.midi_id = midi_id
+    
+    -- Assign each device to a specific quadrant
+    device.quadrant = device_positions[i]
     connected_devices[midi_id] = device
   end
-
+  
   return connected_devices
 end
+
 
 function midigrid.setup_connect_handling()
     midigrid.core_midi_add = midi.add
