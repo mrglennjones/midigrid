@@ -29,8 +29,8 @@ local midigrid = {
   core_grid = grid.real_grid or grid,
   core_midi_add = nil,
   core_midi_remove = nil,
-  cols = 8,
-  rows = 8,
+  cols = 16,
+  rows = 16,
   key = nil,
 }
 
