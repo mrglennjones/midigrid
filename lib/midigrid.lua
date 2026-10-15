@@ -34,7 +34,8 @@ local midigrid = {
   key = nil,
 }
 
-function midigrid:init(layout, rotations, palette_name)
+-- places (optional): { [midi device name] = quad } from "place devices" (see vgrid).
+function midigrid:init(layout, rotations, palette_name, places)
   self.vgrid:init(layout)
   self.cols = self.vgrid.width
   self.rows = self.vgrid.height
@@ -54,6 +55,7 @@ function midigrid:init(layout, rotations, palette_name)
   end
 
   self.palette_name = palette_name
+  self.device_places = (type(places) == "table") and places or nil
 end
 
 function midigrid.connect(dummy_id)
@@ -113,7 +115,7 @@ function midigrid.connect(dummy_id)
     }
   end
 
-  vgrid:attach_devices(connected_devices)
+  vgrid:attach_devices(connected_devices, midigrid.device_places)
   midigrid.setup_connect_handling()
 
   -- Push the all-off state to hardware immediately so ghost LEDs from
@@ -252,6 +254,19 @@ end
 function midigrid.update_devices()
     --TODO WTF does this do?
     midi.update_devices()
+end
+
+-- Place devices: press a pad on each device in turn (top left, top right, bottom
+-- left, bottom right; on a 128 layout left, right).  See vgrid:start_placing.
+function midigrid:start_placing(on_step, on_done)
+  return self.vgrid:start_placing(on_step, function(places)
+    self.device_places = places
+    if on_done then on_done(places) end
+  end)
+end
+
+function midigrid:cancel_placing()
+  self.vgrid:cancel_placing()
 end
 
 -- Grid emulation functions

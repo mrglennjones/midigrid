@@ -79,6 +79,13 @@ local function build_sub(sub, params)
 end
 
 function ModMenu:doKey(n, z)
+  -- an overlay (a message or a step-by-step task such as placing devices)
+  -- takes the keys while it is shown
+  if self.overlay then
+    if self.overlay.key then self.overlay.key(n, z) end
+    mod.menu.redraw()
+    return
+  end
   if n == 1 and z == 1 then
     m.alt = true
   elseif n == 1 and z == 0 then
@@ -125,7 +132,10 @@ function ModMenu:doKey(n, z)
           "PARAM: " .. self.params:get_name(i)
         )
       elseif t == self.params.tTRIGGER then
-        self.params:set(i)
+        -- bang it directly: norns' Trigger:set marks the press in the script's
+        -- PARAMETERS menu by its index in the script's params, which a mod's
+        -- trigger has none of ("table index is nil"), and so never runs it
+        self.params:lookup_param(i):bang()
         m.triggered[i] = 2
       elseif t == self.params.tBINARY then
         self.params:delta(i, 1)
@@ -167,6 +177,7 @@ ModMenu.newtext = function(txt)
 end
 
 function ModMenu:doEnc(n, d)
+  if self.overlay then return end
   -- normal scroll
   if n == 2 and m.alt == false then
     local prev = m.pos
@@ -204,6 +215,19 @@ end
 
 function ModMenu:doRedraw()
   screen.clear()
+
+  if self.overlay then
+    screen.level(4)
+    screen.move(0, 10)
+    screen.text(self.name)
+    for i, line in ipairs(self.overlay.lines or {}) do
+      screen.level(i == 2 and 15 or 8)
+      screen.move(0, 10 + i * 10)
+      screen.text(line)
+    end
+    screen.update()
+    return
+  end
 
   if m.pos == 0 then
     local n = self.name
@@ -264,6 +288,9 @@ local old_timer_handler = function() end
 
 function ModMenu:doInit()
   -- on menu entry, ie, if you wanted to start timers
+  if self.entry_hook then
+    self.entry_hook(self)
+  end
 
   if page == nil then
     build_page(self.params)
@@ -301,6 +328,8 @@ end
 
 function ModMenu:doDeinit()
   -- on menu exit
+  if self.overlay and self.overlay.on_exit then self.overlay.on_exit() end
+  self.overlay = nil
 
   _menu.timer:stop()
   _menu.timer.event = old_timer_handler

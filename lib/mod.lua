@@ -69,6 +69,9 @@ local state = {
   -- Defaults preserve the historical "rotate second device" behaviour.
   device_rotations = { 0, 1, 0, 0 },
   palette = 1,             -- palette index. default 1 -> vintage_amber
+  -- Where each device sits, from "place devices": { [midi device name] = quad }.
+  -- Empty: devices take quads in name order, as before.
+  device_places = {},
   dirty = false            -- has the state been changed since last persisted?
 }
 
@@ -119,7 +122,8 @@ fake_grid.connect = function(idx)
     if state.midigrid_active then
       log("Connecting to midigrid")
       local midigrid = include "midigrid/lib/midigrid"
-      midigrid:init(grid_sizes[state.grid_size], state.device_rotations, palette_names[state.palette])
+      midigrid:init(grid_sizes[state.grid_size], state.device_rotations, palette_names[state.palette],
+                    state.device_places)
 
       reentrance_guard = true
       local g = midigrid.connect(idx)
@@ -144,6 +148,78 @@ local m = modmenu.new("midigridmenu", mod.this_name:upper())
 -- Register the mod menu
 
 mod.menu.register(mod.this_name, m)
+
+local function save_state()
+  if not util.file_exists(data_directory) then
+    os.execute("mkdir -p " .. data_directory)
+  end
+  local t, error = tab.save(state, state_file)
+  if error then
+    log("Could not save midigrid configuration: " .. error)
+  end
+end
+
+-- "place devices": press a pad on each device in turn.  The mod menu shows
+-- which place to press next; K2 cancels.  The places are saved at once.
+local place_names = {
+  [2] = { "LEFT", "RIGHT" },
+  [4] = { "TOP LEFT", "TOP RIGHT", "BOTTOM LEFT", "BOTTOM RIGHT" },
+}
+
+-- The rotation settings belong to devices by number (USB name order), which says nothing about
+-- where each one sits.  With a grid connected, each one's label shows its corner, e.g.
+-- "device 1 (BR) rotation", so a rotation is set for the device that is really there.
+local corner_names = {
+  [2] = { "L", "R" },
+  [4] = { "TL", "TR", "BL", "BR" },
+}
+
+local function rotation_label(d)
+  local mg = _ENV.midigrid
+  local vg = mg and mg.vgrid
+  local dev = vg and vg.devices and vg.devices[d]
+  local corner = dev and (corner_names[#vg.quads] or {})[dev.current_quad]
+  if corner then return "device " .. d .. " (" .. corner .. ") rotation" end
+  return "device " .. d .. " rotation"
+end
+
+local function label_rotations()
+  for d = 1, 4 do
+    local p = m.params.lookup["device_" .. d .. "_rotation"] and m.params:lookup_param("device_" .. d .. "_rotation")
+    if p then p.name = rotation_label(d) end
+  end
+end
+m.entry_hook = function() label_rotations() end
+
+local function start_placing()
+  local mg = _ENV.midigrid
+  if not (mg and mg.vgrid and #mg.vgrid.devices > 0 and #mg.vgrid.quads > 1) then
+    m.overlay = { lines = { "load a script that uses", "the grid, with midigrid", "at 128 or 256", "", "K2 back" },
+                  key = function(n, z) if z == 1 then m.overlay = nil end end }
+    mod.menu.redraw()
+    return
+  end
+  local names = place_names[#mg.vgrid.quads] or {}
+  local ok = mg:start_placing(function(n, total)
+    m.overlay = {
+      lines = { "press any pad on the", (names[n] or ("place " .. n)) .. " device", "",
+                n .. " of " .. total, "K2 cancel" },
+      key = function(k, z)
+        if k == 2 and z == 1 then mg:cancel_placing(); m.overlay = nil end
+      end,
+      on_exit = function() mg:cancel_placing() end }    -- leaving the menu cancels too
+    mod.menu.redraw()
+  end, function(places)
+    state.device_places = places
+    save_state()
+    label_rotations()
+    log("devices placed")
+    m.overlay = { lines = { "devices placed", "", "they keep their places", "while each stays in", "its USB socket" },
+                  key = function(_, z) if z == 1 then m.overlay = nil end end }
+    mod.menu.redraw()
+  end)
+  if not ok then m.overlay = nil end
+end
 
 -- Install the parameters to be edited in the mod menu.
 
@@ -187,6 +263,16 @@ local function init_params()
                         end)
   end
 
+  m.params:add_trigger("place_devices", "place devices")
+  m.params:set_action("place_devices", function() start_placing() end)
+  m.params:add_trigger("forget_places", "forget device places")
+  m.params:set_action("forget_places", function()
+    state.device_places = {}
+    if _ENV.midigrid then _ENV.midigrid.device_places = nil end
+    save_state()
+    log("device places forgotten: name order from the next grid connect")
+  end)
+
   m.params:add_option("palette", "palette",
                       palette_names,
                       state.palette)
@@ -202,15 +288,7 @@ local function init_params()
     if state.dirty then
       log("saving midigrid configuration")
 
-      if not util.file_exists(data_directory) then
-        os.execute("mkdir -p " .. data_directory)
-      end
-
-      local t, error = tab.save(state, state_file)
-
-      if error then
-        log("Could not save midigrid configuration: " .. error)
-      end
+      save_state()
 
       -- Flush palette changes to connected devices without requiring a restart
       if _ENV.midigrid and state.midigrid_active then
@@ -249,6 +327,11 @@ mod.hook.register("system_post_startup", "midigrid startup", function()
     end
     if t.palette ~= nil then
       state.palette = t.palette
+    end
+    if type(t.device_places) == "table" then
+      for name, q in pairs(t.device_places) do
+        if type(name) == "string" and type(q) == "number" then state.device_places[name] = q end
+      end
     end
     state.dirty = migrated
   else
